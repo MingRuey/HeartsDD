@@ -9,7 +9,6 @@ import time
 from itertools import product
 from random import shuffle
 from collections import namedtuple
-from copy import deepcopy
 
 class Card(namedtuple('Card', ['suit', 'rank'])):
     __slots__ = ()
@@ -132,7 +131,7 @@ class HeartGame():
             self.ShuffleDeal()
 
     def heartbreak(self):
-        return len(self.score_cards) == 14
+        return len(self.score_cards) == 15
 
     def ShuffleDeal(self):
         ranks = '23456789TJQKA'
