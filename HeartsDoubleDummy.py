@@ -8,8 +8,8 @@ Created on Thu Sep 27 01:56:49 2018
 import time
 from itertools import product
 from random import shuffle
-from collections import namedtuple, UserDict
-
+from collections import namedtuple
+from copy import deepcopy
 
 class Card(namedtuple('Card', ['suit', 'rank'])):
     __slots__ = ()
@@ -90,32 +90,28 @@ class Player():
         return display
 
 
-class _TricksLogger(UserDict):
-    next_player = {'N': 'E', 'E': 'S', 'S': 'W', 'W': 'N'}
+class _TricksLogger():
 
     def __init__(self):
         super().__init__()
         self.lead = 'N'
-        self.suit = 'C'
         self.leaders = []
         self.tricks = []
 
     def logtrick(self, trick):
-        self.suit = trick['NESW'.find(self.lead)].suit
+        suit = trick['NESW'.find(self.lead)].suit
         rank = -1
         winner = ''
         for player, card in zip('NESW', trick):
-            if card.suit == self.suit and card.rank > rank:
+            if card.suit == suit and card.rank > rank:
                 rank = card.rank
                 winner = player
-        self.log(trick)
+        self.leaders.append(self.lead)
         self.lead = winner
-        self.suit = ''
-        self.clear()
-
-    def log(self, trick):
-        self.leaders.append((self.lead, self.suit))
         self.tricks.append(trick)
+
+    def first_trick(self):
+        return len(self.tricks) == 0
 
 
 class HeartGame():
@@ -152,7 +148,7 @@ class HeartGame():
             self.players[player].deal_cards(deck[13*index: 13*(index+1)])
 
     def GetPlayableTricks(self):
-        if not self.log.suit:
+        if not self.log.first_trick():
             suits = self.players[self.log.lead].get_remain_suits(self.heartbreak())
             output = []
             for suit in suits:
@@ -160,8 +156,7 @@ class HeartGame():
                         *[self.players[player].get_playable_list(suit)
                         for player in 'NESW']))
         else:
-            # only happen at very first trick,
-            # no tricks have been played, but suit is already set to 'C'
+            # only happen at very first trick, force N play C2
             output = []
             output += list(product([Card.make_card('C2')],
                     *[self.players[player].get_playable_list('C')
@@ -182,12 +177,11 @@ class HeartGame():
             self.players[player].hand.add(card)
             if card.suit == 'H' or card == 'CT' or card == 'SQ':
                 self.score_cards.add(card)
-        self.log.lead, self.log.suit = self.log.leaders.pop()
+        self.log.lead = self.log.leaders.pop()
 
     def PrintStatus(self):
-        print('Current Trick: ', list(self.log.values()))
-        print('       --logs: ', self.log.tricks)
-        for player in 'NEWS':
+        print('Tricks: ', self.log.tricks)
+        for player in 'NESW':
             print(player, ': ', self.players[player])
 
 
@@ -202,16 +196,14 @@ def recursive_play():
             if search_list[rnd] is None:
                 search_list[rnd] = game.GetPlayableTricks()
             if search_list[rnd]:
-                a = search_list[rnd].pop()
-                game.PlayTrick(a)
+                trick = search_list[rnd].pop()
+                game.PlayTrick(trick)
                 rnd += 1
                 continue
 
         game.RevokeOneTrick()
         search_list[rnd] = None
         rnd -= 1
-
-    game.PrintStatus()
 
 
 if __name__ == '__main__':
