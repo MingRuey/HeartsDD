@@ -5,10 +5,11 @@ Created on Thu Sep 27 01:56:49 2018
 @author: MRChou
 """
 
-import time
 from itertools import product
-from random import shuffle
+from random import shuffle, choice
 from collections import namedtuple
+from copy import copy, deepcopy
+
 
 class Card(namedtuple('Card', ['suit', 'rank'])):
     __slots__ = ()
@@ -40,6 +41,12 @@ class Card(namedtuple('Card', ['suit', 'rank'])):
         return f'{self.suit}{self.rank_string[self.rank]}'
 
 
+SCORE_CARDS = {Card('H', rank) for rank in range(2, 15)} | {Card.make_card('CT')} | {Card.make_card('SQ')}
+HEARTS = {Card('H', rank) for rank in range(2, 15)}
+SQ = Card('S', 12)
+CT = Card('C', 10)
+
+
 class CardNotFound(Exception):
     pass
 
@@ -58,28 +65,35 @@ class Player():
             raise CardNotFound(msg) from e
         return card
 
-    def get_remain_suits(self, heartbreak):
-        if heartbreak:  # already heart break, can play anything
-            return {card.suit for card in self.hand}
+    def get_remain_suits(self, include_heart):
+        if include_heart:  # which means already heart break
+            if self.hand:
+                return [card.suit for card in self.hand]
         else:
-            suits = {card.suit for card in self.hand if card.suit != 'H'}
-            if suits:
-                return suits
-            else:
-                return {'H'}  # it has nothing but heart
+            suits = {card.suit for card in self.hand}
+            if suits - {'H'}:
+                return list(suits - {'H'})
+            elif 'H' in suits:
+                return ['H']  # it has nothing but heart
+        msg = 'Player {} has empty hand'.format(self.name)
+        raise CardNotFound(msg)
 
-    def get_playable_list(self, suit):
+    def get_playable(self, suit, trickone=False):
         cards = [card for card in self.hand if card.suit == suit]
-        if not cards:  # void in suit can play any
-            cards = [card for card in self.hand]
-            if not cards:
-                msg = 'Player {} has empty hand.'.format(self.name)
-                raise CardNotFound(msg)
+        if not cards:  # void in suit
+            if not trickone:
+                cards = list(self.hand)
+            else:
+                cards = list(self.hand - HEARTS - {SQ})
+                if not cards:
+                    cards = list(self.hand)
+        if not cards:
+            msg = 'Player {} has empty hand.'.format(self.name)
+            raise CardNotFound(msg)
         return cards
 
     def deal_cards(self, cards):
-        for card in cards:
-            self.hand.add(card)
+        self.hand.update(cards)
 
     def __str__(self):
         display = ''
@@ -109,8 +123,18 @@ class _TricksLogger():
         self.lead = winner
         self.tricks.append(trick)
 
-    def first_trick(self):
+    def is_first_trick(self):
         return len(self.tricks) == 0
+
+    def collect_cards(self):
+        cards = {player: set() for player in 'NESW'}
+        if len(self.tricks):
+            #  winner of i-th round is leader of i+1 th round.
+            for trick, lead in zip(self.tricks, self.leaders[1:]):
+                cards[lead].update(set(trick))
+            # final trick winner is current lead
+            cards[self.lead].update(set(self.tricks[-1]))
+        return cards
 
 
 class HeartGame():
@@ -124,14 +148,16 @@ class HeartGame():
 
         # for recording status and resovling tricks:
         self.log = _TricksLogger()
-        self.score_cards = {Card('H', rank) for rank in range(2, 15)} \
-                            | {Card.make_card('CT')} \
-                            | {Card.make_card('SQ')}
+        self.score_cards = deepcopy(SCORE_CARDS)
+        self.h_break = False
         if deal_cards:
             self.ShuffleDeal()
 
-    def heartbreak(self):
-        return len(self.score_cards) == 15
+    def heartbreak_update(self):
+        self.h_break = sum(card.suit == 'H' for card in self.score_cards) < 13
+
+    def clear(self, deal_cards=False):
+        self.__init__(deal_cards)
 
     def ShuffleDeal(self):
         ranks = '23456789TJQKA'
@@ -146,20 +172,35 @@ class HeartGame():
         for index, player in enumerate('NESW'):
             self.players[player].deal_cards(deck[13*index: 13*(index+1)])
 
-    def GetPlayableTricks(self):
-        if not self.log.first_trick():
-            suits = self.players[self.log.lead].get_remain_suits(self.heartbreak())
+    def GetAllPlayableTricks(self):
+        if not self.log.is_first_trick():
+            suits = self.players[self.log.lead].get_remain_suits(self.h_break)
             output = []
             for suit in suits:
                 output += list(product(
-                        *[self.players[player].get_playable_list(suit)
+                        *[self.players[player].get_playable(suit)
                         for player in 'NESW']))
         else:
             # only happen at very first trick, force N play C2
             output = []
             output += list(product([Card.make_card('C2')],
-                    *[self.players[player].get_playable_list('C')
+                    *[self.players[player].get_playable('C', trickone=True)
                     for player in 'ESW']))
+        return output
+
+    def GetRandPlayableTricks(self):
+        if not self.log.is_first_trick():
+            suits = self.players[self.log.lead].get_remain_suits(self.h_break)
+            suit = choice(suits)
+            output = []
+            output += [choice(self.players[player].get_playable(suit))
+                        for player in 'NESW']
+        else:
+            # only happen at very first trick, force N play C2
+            output = [Card.make_card('C2')]
+            output += [choice(
+                       self.players[player].get_playable('C', trickone=True)
+                       ) for player in 'ESW']
         return output
 
     def _play_card(self, player, card):
@@ -170,6 +211,7 @@ class HeartGame():
         for player, card in zip('NESW', trick):
             self._play_card(player, card)
         self.log.logtrick(trick)
+        self.heartbreak_update()
 
     def RevokeOneTrick(self):
         for player, card in zip('NESW', self.log.tricks.pop()):
@@ -177,11 +219,50 @@ class HeartGame():
             if card.suit == 'H' or card == 'CT' or card == 'SQ':
                 self.score_cards.add(card)
         self.log.lead = self.log.leaders.pop()
+        self.heartbreak_update()
 
     def PrintStatus(self):
         print('Tricks: ', self.log.tricks)
+        print('heart break? / score?', self.h_break, not bool(self.score_cards))
         for player in 'NESW':
             print(player, ': ', self.players[player])
+
+    def GetScore(self):
+        scores = self.log.collect_cards()
+        for player in 'NESW':
+            score = len(scores[player] & HEARTS)
+            if SQ in scores[player]:
+                score += 13
+                if score == 26:
+                    score = -26
+            if CT in scores[player]:
+                score *= 2
+            scores[player] = score
+        return scores
+
+
+def _test_game_logic():
+
+    game = HeartGame()
+    game.PrintStatus()
+    print('----------Game Initialized--------------')
+    while True:
+        go = input('One more round = y, retrive = n:  ')
+        if go in 'yY' or go.lower() == 'yes':
+            trick = game.GetRandPlayableTricks()
+            game.PlayTrick(trick)
+            print('\n')
+            game.PrintStatus()
+            print('----------One round played--------------')
+        elif go in 'nN' or go.lower() == 'no':
+            game.RevokeOneTrick()
+            print('\n')
+            game.PrintStatus()
+            print('----------One round revoked-------------')
+        elif go in 'qQ' or go.lower() in ['quit', 'exit']:
+            break
+    print('scores:', game.GetScore())
+    print('----------Game Initialized--------------')
 
 
 def recursive_play():
@@ -193,7 +274,7 @@ def recursive_play():
     while rnd >= 0:
         if game.score_cards:
             if search_list[rnd] is None:
-                search_list[rnd] = game.GetPlayableTricks()
+                search_list[rnd] = game.GetAllPlayableTricks()
             if search_list[rnd]:
                 trick = search_list[rnd].pop()
                 game.PlayTrick(trick)
@@ -206,6 +287,6 @@ def recursive_play():
 
 
 if __name__ == '__main__':
-    start = time.time()
-    recursive_play()
-    print('Games finished, total time: ', time.time()-start)
+    # _test_game_logic()
+    pass
+

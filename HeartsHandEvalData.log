@@ -1,0 +1,40 @@
+2018-09-29 06:33:21,062  Exit before all thread terminates.
+Traceback (most recent call last):
+  File "E:/Google_Drive/Archive_CS_Self-Learning/Code_HeartsDD/HeartsHandEvalData.py", line 108, in random_games_stat
+    hand, avg, stddev = results_que.get(timeout=30)
+  File "C:\ProgramData\Anaconda3\lib\queue.py", line 172, in get
+    raise Empty
+queue.Empty
+2018-09-29 06:33:51,074  Exit before all thread terminates.
+Traceback (most recent call last):
+  File "E:/Google_Drive/Archive_CS_Self-Learning/Code_HeartsDD/HeartsHandEvalData.py", line 108, in random_games_stat
+    hand, avg, stddev = results_que.get(timeout=30)
+  File "C:\ProgramData\Anaconda3\lib\queue.py", line 172, in get
+    raise Empty
+queue.Empty
+2018-09-29 06:34:21,093  Exit before all thread terminates.
+Traceback (most recent call last):
+  File "E:/Google_Drive/Archive_CS_Self-Learning/Code_HeartsDD/HeartsHandEvalData.py", line 108, in random_games_stat
+    hand, avg, stddev = results_que.get(timeout=30)
+  File "C:\ProgramData\Anaconda3\lib\queue.py", line 172, in get
+    raise Empty
+queue.Empty
+2018-09-29 06:34:51,105  Exit before all thread terminates.
+Traceback (most recent call last):
+  File "E:/Google_Drive/Archive_CS_Self-Learning/Code_HeartsDD/HeartsHandEvalData.py", line 108, in random_games_stat
+    hand, avg, stddev = results_que.get(timeout=30)
+  File "C:\ProgramData\Anaconda3\lib\queue.py", line 172, in get
+    raise Empty
+queue.Empty
+2018-09-29 08:00:47,890   ---0 of hands done
+2018-09-29 08:00:47,906   ---take 15.021700382232666 seconds
+2018-09-29 08:00:47,906   ---outputfile: test.csv
+2018-09-29 08:02:31,312   ---0 of hands done
+2018-09-29 08:02:31,312   ---take 15.022845029830933 seconds
+2018-09-29 08:02:31,312   ---outputfile: test.csv
+2018-09-29 08:10:19,197   ---0 of hands done
+2018-09-29 08:10:19,197   ---take 15.026042938232422 seconds
+2018-09-29 08:10:19,197   ---outputfile: test.csv
+2018-09-29 08:17:13,527   ---8 of hands done
+2018-09-29 08:17:13,527   ---take 4.70999813079834 seconds
+2018-09-29 08:17:13,527   ---outputfile: test.csv
